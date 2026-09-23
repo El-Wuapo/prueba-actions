@@ -10,18 +10,29 @@ jobs:
     steps:
       - name: Descargar listas
         run: |
-          curl -sL "https://tokyo.elcano-ipfs.workers.dev/k51qzi5uqu5dh5qej4b9w1cr5i6vhc7rcfkekhrxqek5c91k6gdaiik820fecs/hashes.m3u" -o lista1.m3u
-          curl -sL "https://tokyo.elcano-ipfs.workers.dev/k2k4r81m8tkmuxbc81kmq1in3v0oya1p6pe9o5bu0hu30br5ko08k2gb/data/listas/lista_iptv.m3u" -o lista2.m3u
-      - name: Preparar payload
+          curl -sL "https://tokyo.elcano-ipfs.workers.dev/k51qzi5uqu5dh5qej4b9w1cr5i6vhc7rcfkekhrxqek5c91k6gdaiik820fecs/hashes.m3u" -o lista1.m3u || true
+          curl -sL "https://tokyo.elcano-ipfs.workers.dev/k2k4r81m8tkmuxbc81kmq1in3v0oya1p6pe9o5bu0hu30br5ko08k2gb/data/listas/lista_iptv.m3u" -o lista2.m3u || true
+      - name: Construir payload solo con listas válidas
         run: |
-          jq -n --rawfile c1 lista1.m3u --rawfile c2 lista2.m3u '{files: {"lista1.m3u": {content: $c1}, "lista2.m3u": {content: $c2}}}' > payload.json
-      - name: Subir al gist secreto
+          echo '{"files":{}}' > payload.json
+          for f in lista1 lista2; do
+            if head -c 20 "$f.m3u" 2>/dev/null | grep -q "#EXTM3U"; then
+              jq --arg name "$f.m3u" --rawfile content "$f.m3u" '.files[$name] = {content: $content}' payload.json > tmp.json && mv tmp.json payload.json
+            else
+              echo "Aviso: $f.m3u no parece válido (posible caída del origen) — no se sobrescribe la copia anterior."
+            fi
+          done
+      - name: Subir al gist solo si hay algo válido
         env:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           GIST_ID: 60db876e7bd1d4de62acbbb4072d194d
         run: |
-          curl -s -X PATCH \
-            -H "Authorization: token $GIST_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/gists/$GIST_ID \
-            -d @payload.json
+          if [ "$(jq '.files | length' payload.json)" -gt 0 ]; then
+            curl -s -X PATCH \
+              -H "Authorization: token $GIST_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/gists/$GIST_ID \
+              -d @payload.json
+          else
+            echo "Nada válido esta vez, se conserva el gist tal cual estaba."
+          fi
