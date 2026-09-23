@@ -10,8 +10,8 @@ jobs:
     steps:
       - name: Descargar listas
         run: |
-          curl -sL "https://tokyo.elcano-ipfs.workers.dev/k51qzi5uqu5dh5qej4b9w1cr5i6vhc7rcfkekhrxqek5c91k6gdaiik820fecs/hashes.m3u" -o lista1.m3u || true
-          curl -sL "https://tokyo.elcano-ipfs.workers.dev/k2k4r81m8tkmuxbc81kmq1in3v0oya1p6pe9o5bu0hu30br5ko08k2gb/data/listas/lista_iptv.m3u" -o lista2.m3u || true
+          curl -sL "https://tokyo.elcano-ipfs.workers.dev/k51qzi5uqu5dh5qej4b9wlcr5i6vhc7rcfkekhrxqek5c9lk6gdaiik820fecs/hashes.m3u" -o lista1.m3u || true
+          curl -sL "https://tokyo.elcano-ipfs.workers.dev/k2k4r8lm8tkmuxbc8lkmq1in3v0oya1p6pe9o5bu0hu30br5ko08k2gb/data/listas/lista_iptv.m3u" -o lista2.m3u || true
       - name: Construir payload solo con listas válidas
         run: |
           echo '{"files":{}}' > payload.json
