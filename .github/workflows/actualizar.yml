@@ -11,42 +11,34 @@ jobs:
     steps:
       - name: Descargar listas
         run: |
-          # Intentamos primero con la red oficial de IPFS (gateway de Cloudflare sin bloqueo o dweb.link)
-          HASH1="k51qzi5uqu5dh5qej4b9wlcr5i6vhc7rcfkekhrxqek5c9lk6gdaiik820fecs"
-          HASH2="k51qzi5uqu5di462t7j4vu4akwfhvtjhy88qbupktvoacqfqe9uforjvhyi4wr"
+          # URLs completas apuntando directamente al archivo .m3u final
+          URL1="https://ipfs.bytokyo.dpdns.org/k51qzi5uqu5dh5qej4b9wlcr5i6vhc7rcfkekhrxqek5c9lk6gdaiik820fecs/hashes.m3u"
+          URL2="https://ipfs2.bytokyo.dpdns.org/k51qzi5uqu5di462t7j4vu4akwfhvtjhy88qbupktvoacqfqe9uforjvhyi4wr/hashes.m3u"
 
           echo "Descargando lista 1..."
-          curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-            --max-time 30 "https://cloudflare-ipfs.com/ipns/$HASH1/hashes.m3u" -o lista1.m3u || true
-          
-          # Si falla la primera, probamos con otra pasarela pública
-          if ! head -c 20 "lista1.m3u" 2>/dev/null | grep -q "#EXTM3U"; then
-            curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-              --max-time 30 "https://dweb.link/ipns/$HASH1/hashes.m3u" -o lista1.m3u || true
-          fi
+          curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+            "$URL1" -o lista1.m3u || true
 
           echo "Descargando lista 2..."
-          curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-            --max-time 30 "https://cloudflare-ipfs.com/ipns/$HASH2/hashes.m3u" -o lista2.m3u || true
+          curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+            "$URL2" -o lista2.m3u || true
 
-          if ! head -c 20 "lista2.m3u" 2>/dev/null | grep -q "#EXTM3U"; then
-            curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-              --max-time 30 "https://dweb.link/ipns/$HASH2/hashes.m3u" -o lista2.m3u || true
-          fi
-
-      - name: Construir payload solo con listas válidas
+      - name: Construir payload flexible
         run: |
           echo '{"files":{}}' > payload.json
           for f in lista1 lista2; do
-            if head -c 20 "$f.m3u" 2>/dev/null | grep -q "#EXTM3U"; then
+            # Comprobamos que el archivo existe y no está vacío (tamaño > 0 bytes)
+            if [ -s "$f.m3u" ]; then
               jq --arg name "$f.m3u" --rawfile content "$f.m3u" '.files[$name] = {content: $content}' payload.json > tmp.json && mv tmp.json payload.json
-              echo "OK: $f.m3u procesado correctamente."
+              echo "OK: $f.m3u añadido al payload correctamente."
             else
-              echo "Aviso: $f.m3u no contiene la cabecera válida, se omite para no romper el Gist."
+              echo "Aviso: $f.m3u está vacío o la descarga falló."
             fi
           done
 
-      - name: Subir al gist solo si hay algo válido
+      - name: Subir al gist
         env:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           GIST_ID: 60db876e7bd1d4de62acbbb4072d194d
@@ -59,5 +51,5 @@ jobs:
               -d @payload.json
             echo "Gist actualizado con éxito."
           else
-            echo "Nada válido esta vez, se conserva el gist tal cual estaba."
+            echo "Nada para actualizar, se conserva el Gist anterior."
           fi
